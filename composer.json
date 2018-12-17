@@ -1,0 +1,12 @@
+{
+    "require": {
+        "hprose/hprose-swoole": "dev-master",
+        "corneltek/getoptionkit": "1.2.*",
+        "vlucas/phpdotenv": "~2.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "HproseSwoole\\": "lib/hprose_swoole/"
+        }
+    }
+}

@@ -102,4 +102,17 @@ class Swoole
         return $this->$lib_name;
     }
 
+    /**
+     * @param $func
+     * @param $param
+     * @return mixed
+     */
+    public function __call($func, $param)
+    {
+        if (empty($param[0]) or !is_string($param[0])) {
+            throw new \Exception("module name cannot be null.");
+        }
+        return $this->loadModule($func, $param[0]);
+
+    }
 }

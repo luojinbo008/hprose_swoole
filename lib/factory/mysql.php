@@ -11,4 +11,5 @@ if (empty($config)) {
     throw new Exception("require db config");
 }
 HproseSwoole\Pool\MySQL::init($config);
-return HproseSwoole\Pool\MySQL::fetch("main");
+
+return HproseSwoole\Pool\MySQL::fetch($php->factory_key);

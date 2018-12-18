@@ -7,7 +7,15 @@
  */
 
 return [
-    'main'  => [
+    'master'  => [
+        'serverInfo'    => [
+            "host"      => getenv("REDIS_HOST"),
+            "port"      => getenv("REDIS_PORT"),
+        ],
+        'maxSpareConns' => 1,   // 最大空闲连接数
+        'maxConns'      => 2,   // 最大连接数
+    ],
+    'conn1'  => [
         'serverInfo'    => [
             "host"      => getenv("REDIS_HOST"),
             "port"      => getenv("REDIS_PORT"),

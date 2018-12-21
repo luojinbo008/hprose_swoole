@@ -9,10 +9,9 @@
 return [
     "master" => [
         "enable_cache" => false,
-        "type"  => "FileLog",
+        "type"  => getenv('APP_LOG_TYPE'),
+        "dir"   => getenv('APP_LOG_PATH'),
         "date"  => true,
-        "dir"   => APPPATH,
-        "file"  => "demo_log.txt",
         "leave" => \HproseSwoole\Log::INFO
     ]
 ];

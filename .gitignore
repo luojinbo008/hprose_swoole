@@ -3,3 +3,4 @@
 *.lock
 server
 vendor
+storage/*

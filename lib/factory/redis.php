@@ -10,5 +10,4 @@ $config = $php->config['redis'];
 if (empty($config)) {
     throw new Exception("require redis config");
 }
-HproseSwoole\Pool\Redis::init($config);
-return HproseSwoole\Pool\Redis::fetch($php->factory_key);
+return HproseSwoole\Pool\Redis::init($config);

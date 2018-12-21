@@ -11,34 +11,42 @@ namespace HproseSwoole\Pool;
 
 class Redis
 {
-    protected static $init = false;
-    protected static $spareConns = [];
-    protected static $busyConns = [];
-    protected static $connsConfig;
-    protected static $connsNameMap = [];
-    protected static $pendingFetchCount = [];
-    protected static $resumeFetchCount = [];
+    /**
+     * @var Redis
+     */
+    protected static $init;
+    protected $spareConns = [];
+    protected $busyConns = [];
+    protected $connsConfig;
+    protected $connsNameMap = [];
+    protected $pendingFetchCount = [];
+    protected $resumeFetchCount = [];
 
     /**
      * @param array $connsConfig
+     * @return Redis
      * @throws RedisException
      */
     public static function init(array $connsConfig)
     {
-        if (self::$init) {
-            return;
+        if (!self::$init) {
+            self::$init = new Redis($connsConfig);
         }
-        self::$connsConfig = $connsConfig;
+        return self::$init;
+    }
+
+    public function __construct(array $connsConfig)
+    {
+        $this->connsConfig = $connsConfig;
         foreach ($connsConfig as $name => $config) {
-            self::$spareConns[$name] = [];
-            self::$busyConns[$name] = [];
-            self::$pendingFetchCount[$name] = 0;
-            self::$resumeFetchCount[$name] = 0;
+            $this->spareConns[$name] = [];
+            $this->busyConns[$name] = [];
+            $this->pendingFetchCount[$name] = 0;
+            $this->resumeFetchCount[$name] = 0;
             if ($config['maxSpareConns'] <= 0 || $config['maxConns'] <= 0) {
                 throw new RedisException("Invalid maxSpareConns or maxConns in {$name}");
             }
         }
-        self::$init = true;
     }
 
     /**
@@ -46,34 +54,31 @@ class Redis
      * @param \Swoole\Coroutine\Redis $conn
      * @throws RedisException
      */
-    public static function recycle(\Swoole\Coroutine\Redis $conn)
+    public function recycle(\Swoole\Coroutine\Redis $conn)
     {
-        if (!self::$init) {
-            throw new RedisException('Should call RedisPool::init.');
-        }
         $id = spl_object_hash($conn);
-        $connName = self::$connsNameMap[$id];
+        $connName = $this->connsNameMap[$id];
 
-        if (isset(self::$busyConns[$connName][$id])) {
-            unset(self::$busyConns[$connName][$id]);
+        if (isset($this->busyConns[$connName][$id])) {
+            unset($this->busyConns[$connName][$id]);
         } else {
             throw new RedisException('Unknow Redis connection.');
         }
-        $connsPool = &self::$spareConns[$connName];
+        $connsPool = &$this->spareConns[$connName];
         if ($conn->connected) {
-            if (count($connsPool) >= self::$connsConfig[$connName]['maxSpareConns']) {
+            if (count($connsPool) >= $this->connsConfig[$connName]['maxSpareConns']) {
                 $conn->close();
             } else {
                 $connsPool[] = $conn;
-                if (self::$pendingFetchCount[$connName] > 0) {
-                    self::$resumeFetchCount[$connName]++;
-                    self::$pendingFetchCount[$connName]--;
+                if ($this->pendingFetchCount[$connName] > 0) {
+                    $this->resumeFetchCount[$connName]++;
+                    $this->pendingFetchCount[$connName]--;
                     \Swoole\Coroutine::resume('RedisPool::' . $connName);
                 }
                 return;
             }
         }
-        unset(self::$connsNameMap[$id]);
+        unset($this->connsNameMap[$id]);
     }
 
     /**
@@ -82,33 +87,30 @@ class Redis
      * @return bool|mixed|\Swoole\Coroutine\Redis
      * @throws MySQLException
      */
-    public static function fetch($connName)
+    public function fetch($connName)
     {
-        if (!self::$init) {
-            throw new RedisException('Should call RedisPool::init!');
-        }
-        if (!isset(self::$connsConfig[$connName])) {
+        if (!isset($this->connsConfig[$connName])) {
             throw new RedisException("Unvalid connName: {$connName}.");
         }
-        $connsPool = &self::$spareConns[$connName];
-        if (!empty($connsPool) && count($connsPool) > self::$resumeFetchCount[$connName]) {
+        $connsPool = &$this->spareConns[$connName];
+        if (!empty($connsPool) && count($connsPool) > $this->resumeFetchCount[$connName]) {
             $conn = array_pop($connsPool);
             if ($conn->connected) {
-                self::$busyConns[$connName][spl_object_hash($conn)] = $conn;
+                $this->busyConns[$connName][spl_object_hash($conn)] = $conn;
                 return $conn;
             }
         }
-        if (count(self::$busyConns[$connName]) + count($connsPool) == self::$connsConfig[$connName]['maxConns']) {
-            self::$pendingFetchCount[$connName]++;
+        if (count($this->busyConns[$connName]) + count($connsPool) == $this->connsConfig[$connName]['maxConns']) {
+            $this->pendingFetchCount[$connName]++;
             if (\Swoole\Coroutine::suspend('RedisPool::' . $connName) == false) {
-                self::$pendingFetchCount[$connName]--;
+                $this->pendingFetchCount[$connName]--;
                 throw new RedisException('Reach max connections! Cann\'t pending fetch!');
             }
-            self::$resumeFetchCount[$connName]--;
+            $this->resumeFetchCount[$connName]--;
             if (!empty($connsPool)) {
                 $conn = array_pop($connsPool);
                 if ($conn->connected) {
-                    self::$busyConns[$connName][spl_object_hash($conn)] = $conn;
+                    $this->busyConns[$connName][spl_object_hash($conn)] = $conn;
                     return $conn;
                 }
             } else {
@@ -117,30 +119,30 @@ class Redis
         }
         $conn = new \Swoole\Coroutine\Redis();
         $id = spl_object_hash($conn);
-        self::$connsNameMap[$id] = $connName;
-        self::$busyConns[$connName][$id] = $conn;
-        if ($conn->connect(self::$connsConfig[$connName]['serverInfo']['host'],
-                self::$connsConfig[$connName]['serverInfo']['port']) == false
+        $this->connsNameMap[$id] = $connName;
+        $this->busyConns[$connName][$id] = $conn;
+        if ($conn->connect($this->connsConfig[$connName]['serverInfo']['host'],
+                $this->connsConfig[$connName]['serverInfo']['port']) == false
             ||
             (
-                isset(self::$connsConfig[$connName]['serverInfo']['pwd'])
+                isset($this->connsConfig[$connName]['serverInfo']['pwd'])
                 &&
-                $conn->auth(self::$connsConfig[$connName]['serverInfo']['pwd']) == false
+                $conn->auth($this->connsConfig[$connName]['serverInfo']['pwd']) == false
             )
 
         ) {
-            unset(self::$busyConns[$connName][$id]);
-            unset(self::$connsNameMap[$id]);
+            unset($this->busyConns[$connName][$id]);
+            unset($this->connsNameMap[$id]);
             throw new RedisException('Cann\'t connect to Redis server: '
-                . json_encode(self::$connsConfig[$connName]['serverInfo']));
+                . json_encode($this->connsConfig[$connName]['serverInfo']));
         }
 
-        if (isset(self::$connsConfig[$connName]['serverInfo']['pwd'])
-            && $conn->auth(self::$connsConfig[$connName]['serverInfo']['pwd']) == false) {
-            unset(self::$busyConns[$connName][$id]);
-            unset(self::$connsNameMap[$id]);
+        if (isset($this->connsConfig[$connName]['serverInfo']['pwd'])
+            && $conn->auth($this->connsConfig[$connName]['serverInfo']['pwd']) == false) {
+            unset($this->busyConns[$connName][$id]);
+            unset($this->connsNameMap[$id]);
             throw new RedisException('Cann\'t connect to Redis server: '
-                . json_encode(self::$connsConfig[$connName]['serverInfo']));
+                . json_encode($this->connsConfig[$connName]['serverInfo']));
         }
         return $conn;
     }

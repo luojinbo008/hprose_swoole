@@ -21,12 +21,12 @@ return [
     ],
     'conn1'  => [
         'serverInfo'    => [
-            "host"      => getenv("MYSQL_HOST"),
-            "port"      => getenv("MYSQL_PORT"),
-            "user"      => getenv("MYSQL_USER"),
-            "password"  => getenv("MYSQL_PASSWORD"),
-            "database"  => getenv("MYSQL_DATABASE"),
-            "charset"   => getenv("MYSQL_CHARSET"),
+            "host"      => getenv("MYSQL_MESSAGE_HOST"),
+            "port"      => getenv("MYSQL_MESSAGE_PORT"),
+            "user"      => getenv("MYSQL_MESSAGE_USER"),
+            "password"  => getenv("MYSQL_MESSAGE_PASSWORD"),
+            "database"  => getenv("MYSQL_MESSAGE_DATABASE"),
+            "charset"   => getenv("MYSQL_MESSAGE_CHARSET"),
             "timeout"   => 300
         ],
         'maxSpareConns' => 1,   // 最大空闲连接数

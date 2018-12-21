@@ -6,8 +6,14 @@
  * Time: 12:42
  */
 global $php;
-$config = $php->config['redis'];
-if (empty($config)) {
+
+$configs = $php->config['redis'];
+if (empty($configs)) {
     throw new Exception("require redis config");
 }
-return HproseSwoole\Pool\Redis::init($config);
+
+if (empty($configs[$php->factory_key])) {
+    throw new HproseSwoole\Exception\Factory("redis->{$php->factory_key} is not found.");
+}
+
+return HproseSwoole\Pool\Redis::init($configs[$php->factory_key], $php->factory_key);
